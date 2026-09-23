@@ -1,7 +1,7 @@
 import { AwsClient } from "aws4fetch";
+import { readReplayGameVersion } from "./replay-header";
 
-const REPLAY_MAGIC_OFFSET = 0x2c6;
-const REPLAY_MAGIC = "Ares-Core";
+const REPLAY_HEADER_READ_SIZE = 1024 * 1024;
 
 const ALLOWED_ORIGINS = new Set([
 	"http://127.0.0.1:3000",
@@ -256,8 +256,8 @@ export default {
 				event.object.key,
 				{
 					range: {
-						offset: REPLAY_MAGIC_OFFSET,
-						length: REPLAY_MAGIC.length,
+						offset: 0,
+						length: REPLAY_HEADER_READ_SIZE,
 					},
 				},
 			);
@@ -351,12 +351,17 @@ export default {
 				continue;
 			}
 
-			const magic = new TextDecoder().decode(await object.bytes());
+			let gameVersion: string;
 
-			if (magic !== REPLAY_MAGIC) {
+			try {
+				gameVersion = readReplayGameVersion(
+					new Uint8Array(await object.arrayBuffer()),
+				);
+			} catch (error) {
 				console.log(
-					"Invalid replay magic:",
+					"Invalid replay header:",
 					event.object.key,
+					error,
 				);
 
 				await env.valorant_replays.delete(
@@ -382,15 +387,17 @@ export default {
 							verified_hash,
 							storage_key,
 							uploader_token,
-							size_bytes
+							size_bytes,
+							game_version
 						)
-						VALUES (?, ?, ?, ?)
+						VALUES (?, ?, ?, ?, ?)
 					`)
 					.bind(
 						hash,
 						event.object.key,
 						uploaderToken,
 						object.size,
+						gameVersion,
 					)
 					,
 					env.replay_db.prepare(`
