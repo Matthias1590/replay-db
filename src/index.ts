@@ -7,6 +7,7 @@ const ALLOWED_ORIGINS = new Set([
 	"http://127.0.0.1:3000",
 	"http://localhost:3000",
 	"https://matthias1590.github.io",
+	"https://valorant-valytic.github.io",
 ]);
 
 function withCors(request: Request, response: Response): Response {
